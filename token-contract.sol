@@ -54,35 +54,6 @@ abstract contract Ownable is Context {
     }
 }
 
-library SafeMath {
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        if (a == 0) {
-            return 0;
-        }
-        uint256 c = a * b;
-        assert(c / a == b);
-        return c;
-    }
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        // assert(b > 0); // Solidity automatically throws when dividing by 0
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-        return c;
-    }
-
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        assert(b <= a);
-        return a - b;
-    }
-
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        assert(c >= a);
-        return c;
-    }
-}
-
 interface IERC20 {
     function totalSupply() external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
@@ -100,8 +71,6 @@ interface IERC20 {
 }
 
 abstract contract ERC20 is IERC20, Ownable {
-    using SafeMath for uint256;
-
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Burn(address indexed burner, uint256 value);
@@ -123,7 +92,6 @@ abstract contract ERC20 is IERC20, Ownable {
         symbol = _symbol;
         decimals = _decimals;
         _totalSupply = _initialSupply;
-
         // Assign the initial supply to the deployer's address
         _balanceOf[msg.sender] = _initialSupply;
 
@@ -139,21 +107,14 @@ abstract contract ERC20 is IERC20, Ownable {
     }
 
     function transfer(address recipient, uint256 amount)
-        external
+        external override 
         returns (bool)
     {
         require(recipient != address(0), "ERC20: transfer to the zero address");
         require(_balanceOf[msg.sender] >= amount, "Insufficient Tokens");
         
-        uint256 burn_fee;
-
-        if (recipient == stakingAddress || msg.sender == ownerWallet) {
-            burn_fee = 0;
-        } else {
-            burn_fee = (amount.mul(burnRateOnFee)).div(100);
-        }
-
-        uint256 sendAmount = amount.sub(burn_fee);
+        uint256 burn_fee = recipient == stakingAddress || msg.sender == ownerWallet ? 0 : (amount * burnRateOnFee) / 100;
+        uint256 sendAmount = amount - burn_fee;
 
         _balanceOf[msg.sender] -= amount;
         _balanceOf[recipient] += sendAmount;
@@ -172,22 +133,22 @@ abstract contract ERC20 is IERC20, Ownable {
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {  
-    require(sender != address(0), "ERC20: transfer from the zero address");  
-    require(recipient != address(0), "ERC20: transfer to the zero address");  
-    require(amount <= _allowance[sender][msg.sender], "ERC20: transfer amount exceeds allowance");  
-    require(_balanceOf[sender] >= amount, "ERC20: transfer amount exceeds balance");  
+        require(sender != address(0), "ERC20: transfer from the zero address");  
+        require(recipient != address(0), "ERC20: transfer to the zero address");  
+        require(amount <= _allowance[sender][msg.sender], "ERC20: transfer amount exceeds allowance");  
+        require(_balanceOf[sender] >= amount, "ERC20: transfer amount exceeds balance");  
 
-    _balanceOf[sender] -= amount;  
-    _balanceOf[recipient] += amount;  
-    _allowance[sender][msg.sender] -= amount;  
+        _balanceOf[sender] -= amount;  
+        _balanceOf[recipient] += amount;  
+        _allowance[sender][msg.sender] -= amount;  
 
-    emit Transfer(sender, recipient, amount);  
-    return true;  
-}  
+        emit Transfer(sender, recipient, amount);  
+        return true;  
+    }  
 
     function allowance(address owner, address spender) public view override returns (uint256) {
-    return _allowance[owner][spender];
-}
+        return _allowance[owner][spender];
+    }
 }
 
 contract Giftereum is ERC20 {
